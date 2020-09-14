@@ -57,7 +57,7 @@ named!(where_clause<&[u8], ConditionTree>,
         }
     )
 );
-
+//TODO support nested queries as selection targets
 named!(selection<&[u8], SqlQuery>,
     chain!(
         tag!("select") ~
@@ -84,7 +84,7 @@ named!(selection<&[u8], SqlQuery>,
 pub fn parse_query(input: &str) -> Result<SqlQuery, &str> {
     let q_lower = input.to_lowercase();
 
-    //TODO(malte)
+    //TODO(yy du) appropriately pass through errors from nom
     match selection(&q_lower.into_bytes()) {
         IResult::Done(_, o) => Ok(o),
         IResult::Error(_) => Err("parse error"),
