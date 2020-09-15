@@ -74,7 +74,7 @@ named!(where_clause<&[u8], ConditionTree>,
         space? ~
         tag!("=") ~
         space? ~
-        expr: map_res!(tag_s!(b"?"), str::from_utf8) ,
+        expr: map_res!(tag_s!(b"?"), str::from_utf8) , //TODO : broken!
         ||{
             ConditionTree{
              field: String::from(field),
