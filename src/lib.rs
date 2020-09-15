@@ -7,3 +7,4 @@ mod select;
 
 // #[macro_use]
 mod caseless_tag;
+mod condition;
