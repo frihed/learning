@@ -1,6 +1,7 @@
-use nom::{IResult, alphanumeric, eof, line_ending, space};
+use nom::{IResult, alphanumeric, digit, line_ending, space};
 use std::str;
 use crate::select::*;
+use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
 pub enum SqlQuery {
@@ -12,6 +13,13 @@ pub struct ConditionTree {
     pub field: String,
     pub expr: String,
 }
+
+named!(pub unsigned_number<&[u8], u64>,
+    map_res!(
+        map_res!(digit, str::from_utf8),
+        FromStr::from_str
+    )
+);
 
 named!(csvlist<&[u8], Vec<&str>>,
     many0!(

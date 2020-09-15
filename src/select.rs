@@ -1,9 +1,9 @@
-use crate::parser::{ConditionTree,fieldlist};
-use nom::{space,alphanumeric,eof,line_ending};
+use crate::parser::{ConditionTree, fieldlist, unsigned_number};
+use nom::{space, alphanumeric, eof, line_ending};
 use std::str;
 
 #[derive(Debug, PartialEq)]
-pub struct GroupByClause{
+pub struct GroupByClause {
     columns: Vec<String>,
     having: String,//XXX: should this be an arbitrary expr?
 }
@@ -16,18 +16,19 @@ enum OrderType {
 
 #[derive(Debug, PartialEq)]
 pub struct OrderClause {
-    order_cols: Vec<String>, //TODO can this be an arbitray expr?
+    order_cols: Vec<String>,
+    //TODO can this be an arbitray expr?
     order_type: OrderType,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct LimitClause {
-    limit: i64,
-    offset: i64,
+    limit: u64,
+    offset: u64,
 }
 
 #[derive(Debug, PartialEq, Default)]
-pub struct SelectStatement{
+pub struct SelectStatement {
     table: String,
     distinct: bool,
     fields: Vec<String>,
@@ -36,6 +37,33 @@ pub struct SelectStatement{
     order: Option<OrderClause>,
     limit: Option<LimitClause>,
 }
+
+/// Parse LIMIT clause
+named!(limit_clause<&[u8],LimitClause>,
+    chain!(
+        tag!("limit") ~
+        space ~
+        limit_val: unsigned_number ~
+        space? ~
+        offset_val: opt!(
+            chain!(
+                tag!("offset") ~
+                space ~
+                val: unsigned_number,
+                || {val}
+            )
+        ),
+        || {
+            LimitClause {
+                limit: limit_val,
+                offset: match offset_val {
+                    None => 0,
+                    Some(v) => v,
+                }
+            }
+        }
+    )
+);
 
 /// Parse WHERE clause of a selection
 named!(where_clause<&[u8], ConditionTree>,
@@ -68,6 +96,8 @@ named!(pub selection<&[u8], SelectStatement>,
         space? ~
         cond: opt!(where_clause) ~
         space? ~
+        limit: opt!(limit_clause) ~
+        space? ~
         alt!(eof | tag!(";") | line_ending),
         || {
             SelectStatement {
@@ -77,7 +107,7 @@ named!(pub selection<&[u8], SelectStatement>,
                 where_clause: cond,
                 group_by: None,
                 order: None,
-                limit: None,
+                limit: limit,
             }
         }
     )
@@ -151,7 +181,7 @@ mod tests {
 
     #[test]
     fn where_clause() {
-        let qstring = "select * from ContactInfo where email = ?".to_lowercase();
+        let qstring = "select * from ContactInfo where email = ?;".to_lowercase();
 
         let res = selection(qstring.as_bytes());
         assert_eq!(res.unwrap().1,
@@ -165,5 +195,26 @@ mod tests {
                        ..SelectStatement::default()
                    }
         )
+    }
+
+    #[test]
+    fn limit_clause(){
+        let qstring1 = "select * from users limit 10\n".to_lowercase();
+        let qstring2 = "select * from users limit 10 offset 10\n".to_lowercase();
+
+        let expected_lim1 = LimitClause {
+            limit : 10,
+            offset: 0,
+        };
+        let expected_lim2 = LimitClause {
+            limit : 10 ,
+            offset : 10,
+        };
+
+        let res1 = selection(qstring1.as_bytes());
+        let res2= selection(qstring2.as_bytes());
+
+        assert_eq!(res1.unwrap().1.limit, Some(expected_lim1));
+        assert_eq!(res2.unwrap().1.limit, Some(expected_lim2));
     }
 }
