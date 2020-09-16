@@ -12,7 +12,7 @@ pub enum SqlQuery {
 pub enum ConditionBase {
     Field(String),
     Literal(String),
-    Placeholder,
+    Placeholder, // ?
 }
 
 #[derive(Debug, PartialEq)]
@@ -69,7 +69,7 @@ named!(pub unary_comparison_operator<&[u8], &str>,
     map_res!(
         alt_complete!(
             tag_s!(b"NOT")
-            | tag_s!(b"-")
+            | tag_s!(b"-") //??? number neg
             | tag_s!(b"ISNULL")
         ),
         str::from_utf8

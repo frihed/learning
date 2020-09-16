@@ -1,9 +1,11 @@
-use crate::parser::{ConditionTree, fieldlist, unsigned_number};
+use crate::parser::{ConditionTree, fieldlist, unsigned_number, ConditionExpression};
 use nom::{space, alphanumeric, eof, line_ending};
-use nom::{IResult,Err,ErrorKind, Needed};
+use nom::{IResult, Err, ErrorKind, Needed};
 use std::str;
 use crate::caseless_tag;
 use crate::caseless_tag_bytes;
+use crate::condition::{condition_expr};
+use nom::multispace;
 
 #[derive(Debug, PartialEq)]
 pub struct GroupByClause {
@@ -35,7 +37,7 @@ pub struct SelectStatement {
     table: String,
     distinct: bool,
     fields: Vec<String>,
-    where_clause: Option<ConditionTree>,
+    where_clause: Option<ConditionExpression>,
     group_by: Option<GroupByClause>,
     order: Option<OrderClause>,
     limit: Option<LimitClause>,
@@ -69,41 +71,51 @@ named!(limit_clause<&[u8],LimitClause>,
 );
 
 /// Parse WHERE clause of a selection
-named!(where_clause<&[u8], ConditionTree>,
-    chain!(
+named!(where_clause<&[u8], ConditionExpression>,
+    dbg_dmp!(chain!(
         caseless_tag!("where") ~
         space ~
-        field: map_res!(alphanumeric, str::from_utf8) ~
-        space? ~
-        tag!("=") ~
-        space? ~
-        expr: map_res!(tag_s!(b"?"), str::from_utf8) , //TODO : broken!
+        cond: condition_expr,
         ||{
-            ConditionTree{
-             field: String::from(field),
-             expr:String::from(expr),
-            }
+            cond
+        }
+    )
+    )
+);
+
+named!(table_reference<&[u8], &str>,
+    chain!(
+        table: map_res!( alphanumeric, str::from_utf8) ~
+        alias: opt!(
+            chain!(
+                space ~
+                caseless_tag!("as") ~
+                space ~
+                alias: map_res!(alphanumeric, str::from_utf8),
+                ||{
+                    println!("got alias: {} -> {}", table, alias);
+                }
+            )
+        ),
+        || {
+            table
         }
     )
 );
+
+/// Parse rule from SQL selection query.
 //TODO support nested queries as selection targets
-named!(pub selection<&[u8], SelectStatement>,
-    chain!(
+named!(pub select_statement<&[u8], SelectStatement>,
+    dbg_dmp!(chain!(
         caseless_tag!("select") ~
         space ~
         distinct: opt!(caseless_tag!("distinct")) ~
-        space ~
+        space? ~
         fields: fieldlist ~
-        space ~
-        caseless_tag!("from") ~
-        space ~
-        table: map_res!(alphanumeric, str::from_utf8) ~
-        space? ~
-        cond: opt!(where_clause) ~
-        space? ~
-        limit: opt!(limit_clause) ~
-        space? ~
-        alt!(eof | tag!(";") | line_ending),
+        delimited!(multispace, caseless_tag!("from"), multispace) ~
+        table: table_reference ~
+        cond: opt!(delimited!(multispace, where_clause, multispace)) ~
+        limit: opt!(delimited!(multispace, limit_clause, multispace)) ~
         || {
             SelectStatement {
                 table: String::from(table),
@@ -115,12 +127,26 @@ named!(pub selection<&[u8], SelectStatement>,
                 limit: limit,
             }
         }
+    ))
+);
+
+named!(pub selection<&[u8],SelectStatement>,
+    chain!(
+        stmt : select_statement ~
+        dbg_dmp!(delimited!(
+            opt!(multispace),
+            alt_complete!(tag!(";") | line_ending),
+            opt!(multispace)
+        )),
+        ||{
+            stmt
+        }
     )
 );
 
 
 mod tests {
-    use crate::parser::ConditionTree;
+    use crate::parser::{ConditionTree, ConditionBase};
     use super::*;
 
     #[test]
@@ -189,35 +215,39 @@ mod tests {
         let qstring = "select * from ContactInfo where email = ?;";
 
         let res = selection(qstring.as_bytes());
+
+        let expected_where_cond = Some(ConditionExpression::ComparisonOp(ConditionTree {
+            operator: String::from("="),
+            left: Some(Box::new(ConditionExpression::Expr(ConditionBase::Field(String::from("email"))))),
+            right: Some(Box::new(ConditionExpression::Expr(ConditionBase::Placeholder))),
+        }
+        ));
         assert_eq!(res.unwrap().1,
                    SelectStatement {
                        fields: vec!["ALL".into()],
                        table: String::from("ContactInfo"),
-                       where_clause: Some(ConditionTree {
-                           field: String::from("email"),
-                           expr: String::from("?"),
-                       }),
+                       where_clause: expected_where_cond,
                        ..SelectStatement::default()
                    }
         )
     }
 
     #[test]
-    fn limit_clause(){
+    fn limit_clause() {
         let qstring1 = "select * from users limit 10\n";
         let qstring2 = "select * from users limit 10 offset 10\n";
 
         let expected_lim1 = LimitClause {
-            limit : 10,
+            limit: 10,
             offset: 0,
         };
         let expected_lim2 = LimitClause {
-            limit : 10 ,
-            offset : 10,
+            limit: 10,
+            offset: 10,
         };
 
         let res1 = selection(qstring1.as_bytes());
-        let res2= selection(qstring2.as_bytes());
+        let res2 = selection(qstring2.as_bytes());
 
         assert_eq!(res1.unwrap().1.limit, Some(expected_lim1));
         assert_eq!(res2.unwrap().1.limit, Some(expected_lim2));
