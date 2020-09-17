@@ -1,13 +1,12 @@
-use crate::caseless_tag;
-use crate::caseless_tag_bytes;
-use crate::condition::condition_expr;
-use crate::parser::{
-    fieldlist, statement_terminator, unsigned_number, ConditionExpression, ConditionTree,
-};
-use nom::multispace;
-use nom::{alphanumeric, eof, line_ending, space};
+use crate::common::{fieldlist, statement_terminator, table_reference, unsigned_number};
+use crate::condition::*;
+use crate::parser::ConditionExpression;
+use nom::line_ending;
+use nom::{multispace, space};
 use nom::{Err, ErrorKind, IResult, Needed};
 use std::str;
+// use crate::caseless_tag;
+// use crate::caseless_tag_bytes;
 
 #[derive(Debug, PartialEq)]
 pub struct GroupByClause {
@@ -36,13 +35,13 @@ pub struct LimitClause {
 
 #[derive(Debug, PartialEq, Default)]
 pub struct SelectStatement {
-    table: String,
-    distinct: bool,
-    fields: Vec<String>,
-    where_clause: Option<ConditionExpression>,
-    group_by: Option<GroupByClause>,
-    order: Option<OrderClause>,
-    limit: Option<LimitClause>,
+    pub table: String,
+    pub distinct: bool,
+    pub fields: Vec<String>,
+    pub where_clause: Option<ConditionExpression>,
+    pub group_by: Option<GroupByClause>,
+    pub order: Option<OrderClause>,
+    pub limit: Option<LimitClause>,
 }
 
 /// Parse LIMIT clause
@@ -87,27 +86,6 @@ named!(where_clause<&[u8], ConditionExpression>,
     )
 );
 
-named!(table_reference<&[u8], &str>,
-    chain!(
-        table: map_res!( alphanumeric, str::from_utf8) ~
-        alias: opt!(
-            chain!(
-                space ~
-                caseless_tag!("as") ~
-                space ~
-                alias: map_res!(alphanumeric, str::from_utf8),
-                ||{
-                    println!("got alias: {} -> {}", table, alias);
-                    alias
-                }
-            )
-        ),
-        || {
-            table
-        }
-    )
-);
-
 /// Parse rule from SQL selection query.
 //TODO support nested queries as selection targets
 named!(pub selection<&[u8], SelectStatement>,
@@ -137,9 +115,9 @@ named!(pub selection<&[u8], SelectStatement>,
     )
 );
 
+#[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::SqlQuery::Select;
     use crate::parser::{ConditionBase, ConditionTree};
 
     #[test]

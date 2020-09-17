@@ -1,10 +1,13 @@
 #[macro_use]
 extern crate nom;
 
+pub use self::parser::*;
+pub use self::select::SelectStatement;
 
 pub mod parser;
-mod select;
 
-// #[macro_use]
+#[macro_use]
 mod caseless_tag;
+mod common;
 mod condition;
+mod select;

@@ -1,4 +1,4 @@
-use crate::parser::{binary_comparison_operator, binary_logical_operator, unary_negation_operator};
+use crate::common::{binary_comparison_operator, binary_logical_operator, unary_negation_operator};
 use crate::parser::{ConditionBase, ConditionExpression, ConditionTree};
 use nom::{alphanumeric, multispace};
 use std::str;
@@ -48,10 +48,10 @@ named!(pub condition_expr<&[u8], ConditionExpression>,
             )
         ),
         || {
-            if let Some(ref no) = neg_opt {
+            if let Some(no) = neg_opt {
                 ConditionExpression::LogicalOp(
                     ConditionTree {
-                        operator: String::from(neg_opt.unwrap()),
+                        operator: String::from(no),
                         left: Some(Box::new(fold_cond_exprs(initial, remainder))),
                         right: None,
                     }

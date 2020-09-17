@@ -4,12 +4,10 @@
 ///
 /// This implementation has some performance issues related to extra memory allocations
 /// (see https://github.com/Geal/nom/issues/251), but it works for the moment.
-
-use nom::{IResult, Err, ErrorKind, Needed};
+use nom::{Err, ErrorKind, IResult, Needed};
 use std::str;
 
-
-#[macro_export]
+// #[macro_export]
 macro_rules! caseless_tag (
     ($i:expr, $inp: expr) => (
         {
@@ -28,7 +26,7 @@ macro_rules! caseless_tag (
     );
 );
 
-#[macro_export]
+// #[macro_export]
 macro_rules! caseless_tag_bytes (
     ($i:expr, $bytes: expr) => (
         {
@@ -66,8 +64,11 @@ fn test_caseless_tag() {
     assert_eq!(r, IResult::Done(&b"efGH"[..], &b"aBcd"[..]));
 
     let r = x(&b"abc"[..]);
-    assert_eq!(r,IResult::Incomplete(Needed::Size(4)));
+    assert_eq!(r, IResult::Incomplete(Needed::Size(4)));
 
     let r = x(&b"SELECT"[..]);
-    assert_eq!(r, IResult::Error(Err::Position(ErrorKind::Tag, &b"SELECT"[..])));
+    assert_eq!(
+        r,
+        IResult::Error(Err::Position(ErrorKind::Tag, &b"SELECT"[..]))
+    );
 }
