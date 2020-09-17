@@ -10,4 +10,5 @@ pub mod parser;
 mod caseless_tag;
 mod common;
 mod condition;
+mod insert;
 mod select;
