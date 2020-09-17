@@ -1,16 +1,18 @@
-use crate::parser::{ConditionTree, fieldlist, unsigned_number, ConditionExpression};
-use nom::{space, alphanumeric, eof, line_ending};
-use nom::{IResult, Err, ErrorKind, Needed};
-use std::str;
 use crate::caseless_tag;
 use crate::caseless_tag_bytes;
-use crate::condition::{condition_expr};
+use crate::condition::condition_expr;
+use crate::parser::{
+    fieldlist, statement_terminator, unsigned_number, ConditionExpression, ConditionTree,
+};
 use nom::multispace;
+use nom::{alphanumeric, eof, line_ending, space};
+use nom::{Err, ErrorKind, IResult, Needed};
+use std::str;
 
 #[derive(Debug, PartialEq)]
 pub struct GroupByClause {
     columns: Vec<String>,
-    having: String,//XXX: should this be an arbitrary expr?
+    having: String, //XXX: should this be an arbitrary expr?
 }
 
 #[derive(Debug, PartialEq)]
@@ -44,8 +46,9 @@ pub struct SelectStatement {
 }
 
 /// Parse LIMIT clause
-named!(limit_clause<&[u8],LimitClause>,
-    chain!(
+named!(limit_clause<&[u8], LimitClause>,
+    dbg_dmp!(chain!(
+        space ~
         caseless_tag!("limit") ~
         space ~
         limit_val: unsigned_number ~
@@ -67,12 +70,13 @@ named!(limit_clause<&[u8],LimitClause>,
                 }
             }
         }
-    )
+    ))
 );
 
 /// Parse WHERE clause of a selection
 named!(where_clause<&[u8], ConditionExpression>,
     dbg_dmp!(chain!(
+        space ~
         caseless_tag!("where") ~
         space ~
         cond: condition_expr,
@@ -94,6 +98,7 @@ named!(table_reference<&[u8], &str>,
                 alias: map_res!(alphanumeric, str::from_utf8),
                 ||{
                     println!("got alias: {} -> {}", table, alias);
+                    alias
                 }
             )
         ),
@@ -105,8 +110,8 @@ named!(table_reference<&[u8], &str>,
 
 /// Parse rule from SQL selection query.
 //TODO support nested queries as selection targets
-named!(pub select_statement<&[u8], SelectStatement>,
-    dbg_dmp!(chain!(
+named!(pub selection<&[u8], SelectStatement>,
+    chain!(
         caseless_tag!("select") ~
         space ~
         distinct: opt!(caseless_tag!("distinct")) ~
@@ -114,9 +119,11 @@ named!(pub select_statement<&[u8], SelectStatement>,
         fields: fieldlist ~
         delimited!(multispace, caseless_tag!("from"), multispace) ~
         table: table_reference ~
-        cond: opt!(delimited!(multispace, where_clause, multispace)) ~
-        limit: opt!(delimited!(multispace, limit_clause, multispace)) ~
+        cond: opt!(where_clause) ~
+        limit: opt!(limit_clause) ~
+        statement_terminator,
         || {
+            println!("end of select statuement, where:{:?}", cond);
             SelectStatement {
                 table: String::from(table),
                 distinct: distinct.is_some(),
@@ -127,38 +134,25 @@ named!(pub select_statement<&[u8], SelectStatement>,
                 limit: limit,
             }
         }
-    ))
-);
-
-named!(pub selection<&[u8],SelectStatement>,
-    chain!(
-        stmt : select_statement ~
-        dbg_dmp!(delimited!(
-            opt!(multispace),
-            alt_complete!(tag!(";") | line_ending),
-            opt!(multispace)
-        )),
-        ||{
-            stmt
-        }
     )
 );
 
-
 mod tests {
-    use crate::parser::{ConditionTree, ConditionBase};
     use super::*;
+    use crate::parser::SqlQuery::Select;
+    use crate::parser::{ConditionBase, ConditionTree};
 
     #[test]
     fn simple_select() {
         let qstring = "SELECT id, name FROM users;";
         let res = selection(qstring.as_bytes());
-        assert_eq!(res.unwrap().1,
-                   SelectStatement {
-                       fields: vec!["id".into(), "name".into()],
-                       table: String::from("users"),
-                       ..SelectStatement::default()
-                   }
+        assert_eq!(
+            res.unwrap().1,
+            SelectStatement {
+                fields: vec!["id".into(), "name".into()],
+                table: String::from("users"),
+                ..SelectStatement::default()
+            }
         );
     }
 
@@ -167,12 +161,14 @@ mod tests {
         let qstring = "SELECT * from users;";
 
         let res = selection(qstring.as_bytes());
-        assert_eq!(res.unwrap().1,
-                   SelectStatement {
-                       fields: vec!["ALL".into()],
-                       table: String::from("users"),
-                       ..SelectStatement::default()
-                   });
+        assert_eq!(
+            res.unwrap().1,
+            SelectStatement {
+                fields: vec!["ALL".into()],
+                table: String::from("users"),
+                ..SelectStatement::default()
+            }
+        );
     }
 
     #[test]
@@ -180,12 +176,14 @@ mod tests {
         let qstring = "SELECT id,name FROM users;";
 
         let res = selection(qstring.as_bytes());
-        assert_eq!(res.unwrap().1,
-                   SelectStatement {
-                       fields: vec!["id".into(), "name".into()],
-                       table: String::from("users"),
-                       ..SelectStatement::default()
-                   });
+        assert_eq!(
+            res.unwrap().1,
+            SelectStatement {
+                fields: vec!["id".into(), "name".into()],
+                table: String::from("users"),
+                ..SelectStatement::default()
+            }
+        );
     }
 
     #[test]
@@ -194,12 +192,14 @@ mod tests {
         let qstring = "select id, name from users;";
 
         let res = selection(qstring.as_bytes());
-        assert_eq!(res.unwrap().1,
-                   SelectStatement {
-                       fields: vec!["id".into(), "name".into()],
-                       table: String::from("users"),
-                       ..SelectStatement::default()
-                   })
+        assert_eq!(
+            res.unwrap().1,
+            SelectStatement {
+                fields: vec!["id".into(), "name".into()],
+                table: String::from("users"),
+                ..SelectStatement::default()
+            }
+        )
     }
 
     #[test]
@@ -207,7 +207,10 @@ mod tests {
         let qstring_sem = "select id, name from users;";
         let qstring_linebreak = "select id, name from users\n";
 
-        assert_eq!(selection(qstring_sem.as_bytes()), selection(qstring_linebreak.as_bytes()));
+        assert_eq!(
+            selection(qstring_sem.as_bytes()),
+            selection(qstring_linebreak.as_bytes())
+        );
     }
 
     #[test]
@@ -218,24 +221,28 @@ mod tests {
 
         let expected_where_cond = Some(ConditionExpression::ComparisonOp(ConditionTree {
             operator: String::from("="),
-            left: Some(Box::new(ConditionExpression::Expr(ConditionBase::Field(String::from("email"))))),
-            right: Some(Box::new(ConditionExpression::Expr(ConditionBase::Placeholder))),
-        }
-        ));
-        assert_eq!(res.unwrap().1,
-                   SelectStatement {
-                       fields: vec!["ALL".into()],
-                       table: String::from("ContactInfo"),
-                       where_clause: expected_where_cond,
-                       ..SelectStatement::default()
-                   }
+            left: Some(Box::new(ConditionExpression::Expr(ConditionBase::Field(
+                String::from("email"),
+            )))),
+            right: Some(Box::new(ConditionExpression::Expr(
+                ConditionBase::Placeholder,
+            ))),
+        }));
+        assert_eq!(
+            res.unwrap().1,
+            SelectStatement {
+                fields: vec!["ALL".into()],
+                table: String::from("ContactInfo"),
+                where_clause: expected_where_cond,
+                ..SelectStatement::default()
+            }
         )
     }
 
     #[test]
     fn limit_clause() {
-        let qstring1 = "select * from users limit 10\n";
-        let qstring2 = "select * from users limit 10 offset 10\n";
+        let qstring1 = "select * from users limit 10;";
+        let qstring2 = "select * from users limit 10 offset 10;";
 
         let expected_lim1 = LimitClause {
             limit: 10,
@@ -251,5 +258,91 @@ mod tests {
 
         assert_eq!(res1.unwrap().1.limit, Some(expected_lim1));
         assert_eq!(res2.unwrap().1.limit, Some(expected_lim2));
+    }
+
+    #[test]
+    fn table_alias() {
+        let qstring1 = "select * from PaperTag as t;";
+
+        let res1 = selection(qstring1.as_bytes());
+
+        assert_eq!(
+            res1.unwrap().1,
+            SelectStatement {
+                table: String::from("PaperTag"),
+                fields: vec!["ALL".into()],
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn distinct() {
+        let qstring = "select distinct tag from PaperTag where paperId=?;";
+
+        let res = selection(qstring.as_bytes());
+
+        let expected_where_cond = Some(ConditionExpression::ComparisonOp(ConditionTree {
+            operator: String::from("="),
+            left: Some(Box::new(ConditionExpression::Expr(ConditionBase::Field(
+                String::from("paperId"),
+            )))),
+            right: Some(Box::new(ConditionExpression::Expr(
+                ConditionBase::Placeholder,
+            ))),
+        }));
+
+        assert_eq!(
+            res.unwrap().1,
+            SelectStatement {
+                table: String::from("PaperTag"),
+                distinct: true,
+                fields: vec!["tag".into()],
+                where_clause: expected_where_cond,
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn simple_condition_expr() {
+        let qstring = "select infoJson from PaperStorage where paperId=? and paperStorageId=?;";
+
+        let res = selection(qstring.as_bytes());
+
+        let left_comp = Some(Box::new(ConditionExpression::ComparisonOp(ConditionTree {
+            operator: String::from("="),
+            left: Some(Box::new(ConditionExpression::Expr(ConditionBase::Field(
+                String::from("paperId"),
+            )))),
+            right: Some(Box::new(ConditionExpression::Expr(
+                ConditionBase::Placeholder,
+            ))),
+        })));
+
+        let right_comp = Some(Box::new(ConditionExpression::ComparisonOp(ConditionTree {
+            left: Some(Box::new(ConditionExpression::Expr(ConditionBase::Field(
+                String::from("paperStorageId"),
+            )))),
+            right: Some(Box::new(ConditionExpression::Expr(
+                ConditionBase::Placeholder,
+            ))),
+            operator: String::from("="),
+        })));
+
+        let expected_where_cond = Some(ConditionExpression::LogicalOp(ConditionTree {
+            operator: String::from("and"),
+            left: left_comp,
+            right: right_comp,
+        }));
+        assert_eq!(
+            res.unwrap().1,
+            SelectStatement {
+                table: String::from("PaperStorage"),
+                fields: vec!["infoJson".into()],
+                where_clause: expected_where_cond,
+                ..Default::default()
+            }
+        );
     }
 }

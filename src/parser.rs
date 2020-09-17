@@ -1,6 +1,7 @@
-use nom::{IResult, alphanumeric, digit, line_ending, space};
-use std::str;
 use crate::select::*;
+use nom::eof;
+use nom::{alphanumeric, digit, line_ending, multispace, space, IResult};
+use std::str;
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
@@ -33,6 +34,14 @@ named!(pub unsigned_number<&[u8], u64>,
     map_res!(
         map_res!(digit, str::from_utf8),
         FromStr::from_str
+    )
+);
+
+named!(pub statement_terminator,
+    delimited!(
+        opt!(multispace),
+        alt_complete!(tag!(";") | line_ending | eof),
+        opt!(multispace)
     )
 );
 
@@ -80,7 +89,7 @@ named!(pub unary_comparison_operator<&[u8], &str>,
 named!(pub unary_negation_operator<&[u8], &str>,
     map_res!(
         alt_complete!(
-            tag_s!(b"NOT")
+            tag_s!(b"not")
             | tag_s!(b"!")
         ),
         str::from_utf8
@@ -89,22 +98,22 @@ named!(pub unary_negation_operator<&[u8], &str>,
 
 /// Parse rule for a comma-separated list.
 named!(csvlist<&[u8], Vec<&str>>,
-    many0!(
-        map_res!(
+many0!(
+    map_res!(
+        chain!(
+        fieldname: alphanumeric ~
+        opt!(
             chain!(
-            fieldname: alphanumeric ~
-            opt!(
-                chain!(
-                    tag!(",") ~
-                    space?,
-                    || {}
-                )
-            ),
-            || {fieldname}
-            ),
-            str::from_utf8)
-    )
-    );
+                tag!(",") ~
+                space?,
+                || {}
+            )
+        ),
+        || {fieldname}
+        ),
+        str::from_utf8)
+)
+);
 
 /// Parse list of columns/fields.
 named!(pub fieldlist<&[u8], Vec<&str>>,
@@ -121,7 +130,6 @@ named!(pub fieldlist<&[u8], Vec<&str>>,
 //     )
 // }
 
-
 pub fn parse_query(input: &str) -> Result<SqlQuery, &str> {
     let q_lower = input.to_lowercase();
 
@@ -129,8 +137,6 @@ pub fn parse_query(input: &str) -> Result<SqlQuery, &str> {
     match selection(&q_lower.into_bytes()) {
         IResult::Done(_, o) => Ok(SqlQuery::Select(o)),
         IResult::Error(_) => Err("parse error"),
-        IResult::Incomplete
-        (_) => Err("incomplete query"),
+        IResult::Incomplete(_) => Err("incomplete query"),
     }
 }
-
