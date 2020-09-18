@@ -130,7 +130,7 @@ named!(pub selection<&[u8], SelectStatement>,
         delimited!(multispace, caseless_tag!("from"), multispace) ~
         table: table_reference ~
         cond: opt!(where_clause) ~
-        order: opt!(order_clause) ~
+        order: opt!(complete!(order_clause)) ~
         limit: opt!(limit_clause) ~
         statement_terminator,
         || {
