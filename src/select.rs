@@ -118,6 +118,7 @@ named!(pub selection<&[u8], SelectStatement>,
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::common::Operator;
     use crate::parser::{ConditionBase, ConditionTree};
 
     #[test]
@@ -198,7 +199,7 @@ mod tests {
         let res = selection(qstring.as_bytes());
 
         let expected_where_cond = Some(ConditionExpression::ComparisonOp(ConditionTree {
-            operator: String::from("="),
+            operator: Operator::Equal,
             left: Some(Box::new(ConditionExpression::Base(ConditionBase::Field(
                 String::from("email"),
             )))),
@@ -261,7 +262,7 @@ mod tests {
         let res = selection(qstring.as_bytes());
 
         let expected_where_cond = Some(ConditionExpression::ComparisonOp(ConditionTree {
-            operator: String::from("="),
+            operator: Operator::Equal,
             left: Some(Box::new(ConditionExpression::Base(ConditionBase::Field(
                 String::from("paperId"),
             )))),
@@ -289,7 +290,7 @@ mod tests {
         let res = selection(qstring.as_bytes());
 
         let left_comp = Some(Box::new(ConditionExpression::ComparisonOp(ConditionTree {
-            operator: String::from("="),
+            operator: Operator::Equal,
             left: Some(Box::new(ConditionExpression::Base(ConditionBase::Field(
                 String::from("paperId"),
             )))),
@@ -305,11 +306,11 @@ mod tests {
             right: Some(Box::new(ConditionExpression::Base(
                 ConditionBase::Placeholder,
             ))),
-            operator: String::from("="),
+            operator: Operator::Equal,
         })));
 
         let expected_where_cond = Some(ConditionExpression::LogicalOp(ConditionTree {
-            operator: String::from("and"),
+            operator: Operator::And,
             left: left_comp,
             right: right_comp,
         }));

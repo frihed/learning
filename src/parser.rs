@@ -1,3 +1,4 @@
+use crate::common::Operator;
 use crate::insert::*;
 use crate::select::*;
 use nom::IResult;
@@ -21,7 +22,7 @@ pub enum ConditionBase {
 
 #[derive(Debug, PartialEq)]
 pub struct ConditionTree {
-    pub operator: String,
+    pub operator: Operator,
     pub left: Option<Box<ConditionExpression>>,
     pub right: Option<Box<ConditionExpression>>,
 }
