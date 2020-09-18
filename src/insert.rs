@@ -1,4 +1,4 @@
-use crate::common::{fieldlist, statement_terminator, table_reference};
+use crate::common::{fieldlist, statement_terminator, table_reference, valueliest};
 use nom::multispace;
 use nom::{Err, ErrorKind, IResult, Needed};
 use std::str;
@@ -22,7 +22,7 @@ named!(pub insertion<&[u8], InsertStatement>,
         caseless_tag!("values") ~
         multispace ~
         tag!("(") ~
-        fields: fieldlist ~
+        fields: valueliest ~
         tag!(")") ~
         statement_terminator ,
         ||{
@@ -51,6 +51,22 @@ mod tests {
             InsertStatement {
                 table: String::from("users"),
                 fields: vec!["42".into(), "test".into()],
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn placeholder_insert() {
+        let qstring = "INSERT INTO users VALUES (?,?);";
+
+        let res = insertion(qstring.as_bytes());
+
+        assert_eq!(
+            res.unwrap().1,
+            InsertStatement {
+                table: String::from("users"),
+                fields: vec!["?".into(), "?".into()],
                 ..Default::default()
             }
         );

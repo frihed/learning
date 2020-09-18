@@ -27,7 +27,7 @@ pub struct ConditionTree {
 pub enum ConditionExpression {
     ComparisonOp(ConditionTree),
     LogicalOp(ConditionTree),
-    Expr(ConditionBase),
+    Base(ConditionBase),
 }
 
 pub fn parse_query(input: &str) -> Result<SqlQuery, &str> {

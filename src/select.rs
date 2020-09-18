@@ -199,10 +199,10 @@ mod tests {
 
         let expected_where_cond = Some(ConditionExpression::ComparisonOp(ConditionTree {
             operator: String::from("="),
-            left: Some(Box::new(ConditionExpression::Expr(ConditionBase::Field(
+            left: Some(Box::new(ConditionExpression::Base(ConditionBase::Field(
                 String::from("email"),
             )))),
-            right: Some(Box::new(ConditionExpression::Expr(
+            right: Some(Box::new(ConditionExpression::Base(
                 ConditionBase::Placeholder,
             ))),
         }));
@@ -262,10 +262,10 @@ mod tests {
 
         let expected_where_cond = Some(ConditionExpression::ComparisonOp(ConditionTree {
             operator: String::from("="),
-            left: Some(Box::new(ConditionExpression::Expr(ConditionBase::Field(
+            left: Some(Box::new(ConditionExpression::Base(ConditionBase::Field(
                 String::from("paperId"),
             )))),
-            right: Some(Box::new(ConditionExpression::Expr(
+            right: Some(Box::new(ConditionExpression::Base(
                 ConditionBase::Placeholder,
             ))),
         }));
@@ -290,19 +290,19 @@ mod tests {
 
         let left_comp = Some(Box::new(ConditionExpression::ComparisonOp(ConditionTree {
             operator: String::from("="),
-            left: Some(Box::new(ConditionExpression::Expr(ConditionBase::Field(
+            left: Some(Box::new(ConditionExpression::Base(ConditionBase::Field(
                 String::from("paperId"),
             )))),
-            right: Some(Box::new(ConditionExpression::Expr(
+            right: Some(Box::new(ConditionExpression::Base(
                 ConditionBase::Placeholder,
             ))),
         })));
 
         let right_comp = Some(Box::new(ConditionExpression::ComparisonOp(ConditionTree {
-            left: Some(Box::new(ConditionExpression::Expr(ConditionBase::Field(
+            left: Some(Box::new(ConditionExpression::Base(ConditionBase::Field(
                 String::from("paperStorageId"),
             )))),
-            right: Some(Box::new(ConditionExpression::Expr(
+            right: Some(Box::new(ConditionExpression::Base(
                 ConditionBase::Placeholder,
             ))),
             operator: String::from("="),

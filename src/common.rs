@@ -80,7 +80,7 @@ many0!(
         opt!(
             chain!(
                 tag!(",") ~
-                space?,
+                multispace?,
                 || {}
             )
         ),
@@ -105,6 +105,27 @@ named!(pub fieldlist<&[u8], Vec<&str>>,
 //     )
 // }
 
+named!(pub valueliest<&[u8], Vec<&str>>,
+    many0!(
+        map_res!(chain!(
+            val: alt_complete!(tag_s!(b"?") | alphanumeric) ~
+            opt!(
+                chain!(
+                    tag!(",") ~
+                    multispace? ,
+                    ||{}
+                )
+            ),
+            ||{
+                val
+            }
+        ),
+        str::from_utf8
+        )
+    )
+);
+
+/// Parse a reference to a named table
 named!(pub table_reference<&[u8], &str>,
     chain!(
         table: map_res!( alphanumeric, str::from_utf8) ~
