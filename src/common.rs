@@ -96,7 +96,7 @@ many0!(
 );
 
 /// Parse list of columns/fields.
-named!(pub fieldlist<&[u8], Vec<&str>>,
+named!(pub field_list<&[u8], Vec<&str>>,
     alt_complete!(
         tag!("*") => {|_| vec!["ALL".into()]}
         | csvlist
@@ -110,7 +110,7 @@ named!(pub fieldlist<&[u8], Vec<&str>>,
 //     )
 // }
 
-named!(pub valueliest<&[u8], Vec<&str>>,
+named!(pub value_liest<&[u8], Vec<&str>>,
     many0!(
         map_res!(chain!(
             val: alt_complete!(tag_s!(b"?") | alphanumeric) ~

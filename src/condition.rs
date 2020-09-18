@@ -118,7 +118,10 @@ named!(predicate<&[u8], ConditionExpression>,
         )
         | chain!(
             field: delimited!(opt!(multispace),
-                delimited!(tag!("\""), alphanumeric,tag!("\"")),
+                alt_complete!(
+                delimited!(tag!("\""), alphanumeric,tag!("\""))
+                | delimited!(tag!("'"), alphanumeric, tag!("'"))
+                ),
                 opt!(multispace)),
             || {
                 ConditionExpression::Base(

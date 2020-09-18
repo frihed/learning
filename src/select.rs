@@ -1,4 +1,4 @@
-use crate::common::{fieldlist, statement_terminator, table_reference, unsigned_number};
+use crate::common::{field_list, statement_terminator, table_reference, unsigned_number};
 use crate::condition::*;
 use crate::parser::ConditionExpression;
 use nom::line_ending;
@@ -78,7 +78,7 @@ named!(order_clause<&[u8], OrderClause>,
             multispace? ~
             caseless_tag!("order by") ~
             multispace ~
-            order_expr: fieldlist ~
+            order_expr: field_list ~
             ordering: opt!(
                 chain!(
                 multispace ~
@@ -126,7 +126,7 @@ named!(pub selection<&[u8], SelectStatement>,
         space ~
         distinct: opt!(caseless_tag!("distinct")) ~
         space? ~
-        fields: fieldlist ~
+        fields: field_list ~
         delimited!(multispace, caseless_tag!("from"), multispace) ~
         table: table_reference ~
         cond: opt!(where_clause) ~

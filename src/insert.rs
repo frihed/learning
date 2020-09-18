@@ -1,4 +1,4 @@
-use crate::common::{fieldlist, statement_terminator, table_reference, valueliest};
+use crate::common::{field_list, statement_terminator, table_reference, value_liest};
 use nom::multispace;
 use nom::{Err, ErrorKind, IResult, Needed};
 use std::str;
@@ -22,7 +22,7 @@ named!(pub insertion<&[u8], InsertStatement>,
         caseless_tag!("values") ~
         multispace ~
         tag!("(") ~
-        fields: valueliest ~
+        fields: value_liest ~
         tag!(")") ~
         statement_terminator ,
         ||{
