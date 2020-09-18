@@ -11,8 +11,11 @@ pub enum SqlQuery {
 
 #[derive(Debug, PartialEq)]
 pub enum ConditionBase {
+    /// 数据库字段
     Field(String),
+    /// 字面值
     Literal(String),
+    ///占位符
     Placeholder, // ?
 }
 
