@@ -5,8 +5,6 @@ use nom::line_ending;
 use nom::{multispace, space};
 use nom::{Err, ErrorKind, IResult, Needed};
 use std::str;
-// use crate::caseless_tag;
-// use crate::caseless_tag_bytes;
 
 #[derive(Debug, PartialEq)]
 pub struct GroupByClause {
@@ -15,16 +13,16 @@ pub struct GroupByClause {
 }
 
 #[derive(Debug, PartialEq)]
-enum OrderType {
+pub enum OrderType {
     OrderAscending,
     OrderDescending,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct OrderClause {
-    order_cols: Vec<String>,
+    cols: Vec<String>,
     //TODO can this be an arbitray expr?
-    order_type: OrderType,
+    order: OrderType,
 }
 
 #[derive(Debug, PartialEq)]
@@ -92,8 +90,8 @@ named!(order_clause<&[u8], OrderClause>,
             ),
             ||{
                 OrderClause{
-                    order_cols: order_expr.iter().map(|e| String::from(*e)).collect(),
-                    order_type: match ordering {
+                    cols: order_expr.iter().map(|e| String::from(*e)).collect(),
+                    order: match ordering {
                         None => OrderType::OrderAscending,
                         Some(o) => o,
                      }
@@ -360,20 +358,30 @@ mod tests {
 
     #[test]
     fn order_clause() {
-        let qstring = "select * from users order by id desc;";
-        let res = selection(qstring.as_bytes());
+        // let qstring = "select * from users order by id desc\n";
+        // let qstring2 = "select * from users order by name, age desc\n";
+        let qstring3 = "select * from users order by name;";
 
-        assert_eq!(
-            res.unwrap().1,
-            SelectStatement {
-                table: String::from("users"),
-                fields: vec!["ALL".into()],
-                order: Some(OrderClause {
-                    order_type: OrderType::OrderDescending,
-                    order_cols: vec!["id".into()],
-                }),
-                ..Default::default()
-            }
-        );
+        let expected_ord = OrderClause {
+            cols: vec!["id".into()],
+            order: OrderType::OrderDescending,
+        };
+        let expected_ord2 = OrderClause {
+            cols: vec!["name".into(), "age".into()],
+            order: OrderType::OrderDescending,
+        };
+
+        let expected_ord3 = OrderClause {
+            cols: vec!["name".into()],
+            order: OrderType::OrderAscending,
+        };
+
+        // let res = selection(qstring.as_bytes());
+        // let res2 = selection(qstring2.as_bytes());
+        let res3 = selection(qstring3.as_bytes());
+
+        // assert_eq!(res.unwrap().1.order, Some(expected_ord));
+        // assert_eq!(res2.unwrap().1.order, Some(expected_ord2));
+        assert_eq!(res3.unwrap().1.order, Some(expected_ord3));
     }
 }

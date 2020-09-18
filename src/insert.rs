@@ -6,7 +6,7 @@ use std::str;
 #[derive(Debug, Default, PartialEq)]
 pub struct InsertStatement {
     pub table: String,
-    pub fields: Vec<String>,
+    pub fields: Vec<(String, String)>,
 }
 
 /// Parse rule for a SQL insert query.
@@ -19,16 +19,36 @@ named!(pub insertion<&[u8], InsertStatement>,
         multispace ~
         table: table_reference ~
         multispace ~
+        fields: opt!(
+            chain!(
+                tag!("(") ~
+                fields: field_list ~
+                tag!(")") ~
+                multispace,
+                ||{
+                    fields
+                }
+            )
+        ) ~
         caseless_tag!("values") ~
         multispace ~
         tag!("(") ~
-        fields: value_liest ~
+        values: value_liest ~
         tag!(")") ~
         statement_terminator ,
         ||{
             InsertStatement {
                 table: String::from(table),
-                fields: fields.iter().map(|s| String::from(*s)).collect(),
+                // fields: values.iter().map(|s| String::from(*s)).collect(),
+                fields: match fields {
+                    Some(ref f) =>
+                        f.iter().map(|s| String::from(*s))
+                        .zip(values.into_iter().map(|s| String::from(s))).collect(),
+                    None => values.into_iter()
+                        .enumerate()
+                        .map(|(i, s)| (format!("{}", i),String::from(s)))
+                        .collect(),
+                }
             }
         }
     )
@@ -37,6 +57,7 @@ named!(pub insertion<&[u8], InsertStatement>,
 #[cfg(test)]
 mod tests {
     use crate::insert::*;
+    use crate::SqlQuery::Insert;
 
     #[test]
     fn simple_insert() {
@@ -50,7 +71,7 @@ mod tests {
             r2,
             InsertStatement {
                 table: String::from("users"),
-                fields: vec!["42".into(), "test".into()],
+                fields: vec![("0".into(), "42".into()), ("1".into(), "test".into())],
                 ..Default::default()
             }
         );
@@ -66,7 +87,39 @@ mod tests {
             res.unwrap().1,
             InsertStatement {
                 table: String::from("users"),
-                fields: vec!["?".into(), "?".into()],
+                fields: vec![("0".into(), "?".into()), ("1".into(), "?".into())],
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn single_quotes_insert() {
+        let qstring = "INSERT INTO users VALUES (45.6,'abc');";
+
+        let res = insertion(qstring.as_bytes());
+
+        assert_eq!(
+            res.unwrap().1,
+            InsertStatement {
+                table: String::from("users"),
+                fields: vec![("0".into(), "45.6".into()), ("1".into(), "abc".into())],
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn insert_with_field_names() {
+        let qstring = "insert into users (id, name) values (42, test);";
+
+        let res = insertion(qstring.as_bytes());
+
+        assert_eq!(
+            res.unwrap().1,
+            InsertStatement {
+                table: String::from("users"),
+                fields: vec![("id".into(), "42".into()), ("name".into(), "test".into())],
                 ..Default::default()
             }
         );

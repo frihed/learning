@@ -1,5 +1,6 @@
 use crate::common::{
-    binary_comparison_operator, binary_logical_operator, unary_negation_operator, Operator,
+    binary_comparison_operator, binary_logical_operator, sql_identifier, unary_negation_operator,
+    Operator,
 };
 use crate::parser::{ConditionBase, ConditionExpression, ConditionTree};
 use nom::{alpha, alphanumeric, digit, multispace};
@@ -132,7 +133,7 @@ named!(predicate<&[u8], ConditionExpression>,
         )
         |
         chain!(
-            field: delimited!(opt!(multispace), alphanumeric, opt!(multispace)),
+            field: delimited!(opt!(multispace), sql_identifier, opt!(multispace)),
             ||{
                 println!("pred: field {:?}", str::from_utf8(field).unwrap());
                 ConditionExpression::Base(
