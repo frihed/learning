@@ -72,6 +72,38 @@ named!(limit_clause<&[u8], LimitClause>,
     ))
 );
 
+named!(order_clause<&[u8], OrderClause>,
+    dbg_dmp!(
+        chain!(
+            multispace? ~
+            caseless_tag!("order by") ~
+            multispace ~
+            order_expr: fieldlist ~
+            ordering: opt!(
+                chain!(
+                multispace ~
+                order_type: alt_complete!(
+                    map!(caseless_tag!("desc"), |_| OrderType::OrderDescending)
+                    | map!(caseless_tag!("asc"), |_| OrderType::OrderAscending)
+                ),||{
+                    order_type
+                }
+                )
+            ),
+            ||{
+                OrderClause{
+                    order_cols: order_expr.iter().map(|e| String::from(*e)).collect(),
+                    order_type: match ordering {
+                        None => OrderType::OrderAscending,
+                        Some(o) => o,
+                     }
+                }
+            }
+
+        )
+    )
+);
+
 /// Parse WHERE clause of a selection
 named!(where_clause<&[u8], ConditionExpression>,
     dbg_dmp!(chain!(
@@ -98,6 +130,7 @@ named!(pub selection<&[u8], SelectStatement>,
         delimited!(multispace, caseless_tag!("from"), multispace) ~
         table: table_reference ~
         cond: opt!(where_clause) ~
+        order: opt!(order_clause) ~
         limit: opt!(limit_clause) ~
         statement_terminator,
         || {
@@ -108,7 +141,7 @@ named!(pub selection<&[u8], SelectStatement>,
                 fields: fields.iter().map(|s| {String::from(*s)}).collect(),
                 where_clause: cond,
                 group_by: None,
-                order: None,
+                order: order,
                 limit: limit,
             }
         }
@@ -183,7 +216,7 @@ mod tests {
 
     #[test]
     fn termination() {
-        let qstring_sem = "select id, name from users;";
+        let qstring_sem = "select id, name from users";
         let qstring_linebreak = "select id, name from users\n";
 
         assert_eq!(
@@ -320,6 +353,25 @@ mod tests {
                 table: String::from("PaperStorage"),
                 fields: vec!["infoJson".into()],
                 where_clause: expected_where_cond,
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn order_clause() {
+        let qstring = "select * from users order by id desc;";
+        let res = selection(qstring.as_bytes());
+
+        assert_eq!(
+            res.unwrap().1,
+            SelectStatement {
+                table: String::from("users"),
+                fields: vec!["ALL".into()],
+                order: Some(OrderClause {
+                    order_type: OrderType::OrderDescending,
+                    order_cols: vec!["id".into()],
+                }),
                 ..Default::default()
             }
         );
