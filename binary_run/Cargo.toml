@@ -1,0 +1,14 @@
+[package]
+name = "binary_run"
+version = "0.1.0"
+authors = ["dyy <yayi_du@kingdee.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+basis = {path = "../basis", version = "0.1.0"}
+anyhow = "1.0.33"
+async-std = { version = "1.6.5", features = ["unstable", "attributes"] }
+log4rs = { version = "1.0.0-alpha-1" }
+log = { version = "0.4.0", features = ["std"] }

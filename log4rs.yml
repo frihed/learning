@@ -1,0 +1,29 @@
+appenders:
+  # An appender named "stdout" that writes to stdout
+  stdout:
+    kind: console
+    encoder:
+      pattern: "[Console] {d} - {l} - {t} - {m}{n}"
+
+  # An appender named "file" that writes to a file with a custom pattern encoder
+  file:
+    kind: file
+    path: "log/jitap.log"
+    encoder:
+      pattern: "[File] {d(%Y-%m-%d %H:%M:%S)} - {l} - {t} - L{L} - {m}{n}"
+
+# Set the default logging level to "warn" and attach the "stdout" appender to the root
+root:
+  level: info
+  appenders:
+#    - file
+    - stdout
+
+loggers:
+  # Route log events sent to the "app" logger to the "file" appender,
+  # and *not* the normal appenders installed at the root
+  app:
+    level: debug
+    appenders:
+      - file
+    additive: false
